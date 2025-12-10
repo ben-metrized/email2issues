@@ -1,0 +1,4 @@
+{
+  "name": "GitMail CLI Agent",
+  "description": "An intelligent agent that parses natural language emails into executable GitHub CLI issue commands using Gemini."
+}
