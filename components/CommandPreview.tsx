@@ -12,7 +12,7 @@ export const CommandPreview: React.FC<CommandPreviewProps> = ({ issue, onUpdate,
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   
-  // Local state for editing before committing changes
+// Local state for editing before committing changes
   const [editedIssue, setEditedIssue] = useState(issue);
 
   useEffect(() => {
@@ -22,8 +22,22 @@ export const CommandPreview: React.FC<CommandPreviewProps> = ({ issue, onUpdate,
   const generateCommand = (i: ParsedIssue) => {
     // Escape double quotes for shell safety
     const safeTitle = i.title.replace(/"/g, '\\"');
-    const safeBody = i.body.replace(/"/g, '\\"').replace(/`/g, '\\`');
+
+    let issueBody = i.body;
+
+    if (i.originalContext) {
+      issueBody += 
+        `\n\n---\n\n` + // Horizontal Rule
+        `**Original Context:**\n` + 
+        `\n` +
+        `\`\`\`\n` +
+        i.originalContext +
+        `\n\`\`\``;
+    }
     
+    // Escape double quotes and backticks in the *final* body string
+    const safeBody = issueBody.replace(/"/g, '\\"').replace(/`/g, '\\`');
+
     // Construct labels string
     const labelsStr = i.labels.map(l => `--label "${l}"`).join(' ');
 
@@ -133,11 +147,17 @@ export const CommandPreview: React.FC<CommandPreviewProps> = ({ issue, onUpdate,
         ) : (
           <div>
             <div className="mb-4">
-               <h3 className="font-semibold text-gray-900 mb-1">{editedIssue.title}</h3>
-               <p className="text-gray-600 text-sm whitespace-pre-line">{editedIssue.body}</p>
+              <h3 className="font-semibold text-gray-900 mb-1">{editedIssue.title}</h3>
+              <p className="text-gray-600 text-sm whitespace-pre-line">{editedIssue.body}</p>
+              <br/><hr/><br/>
+              {issue.originalContext && (
+              <div className="mt-4 p-3 bg-grey-50 border border-yellow-100 rounded-md">
+                  <p className="text-xs font-semibold text-yellow-800 uppercase mb-1">Original Email Context</p>
+                  <p className="text-xs text-yellow-800 italic">"{issue.originalContext}"</p>
+              </div>
+              )}
             </div>
-
-             {/* Code Block for Copying */}
+            {/* Code Block for Copying */}
             <div className="relative group">
               <pre className="bg-slate-900 text-slate-50 p-4 rounded-lg text-xs md:text-sm font-mono overflow-x-auto custom-scrollbar whitespace-pre-wrap break-all">
                 {generateCommand(editedIssue)}
@@ -150,12 +170,6 @@ export const CommandPreview: React.FC<CommandPreviewProps> = ({ issue, onUpdate,
                 {copied ? <Check size={16} className="text-green-400" /> : <Copy size={16} />}
               </button>
             </div>
-            {issue.originalContext && (
-                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-100 rounded-md">
-                    <p className="text-xs font-semibold text-yellow-800 uppercase mb-1">Original Email Context</p>
-                    <p className="text-xs text-yellow-800 italic">"{issue.originalContext}"</p>
-                </div>
-            )}
           </div>
         )}
       </div>

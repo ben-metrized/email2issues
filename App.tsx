@@ -18,6 +18,38 @@ const App: React.FC = () => {
   const [status, setStatus] = useState<ProcessingStatus>(ProcessingStatus.IDLE);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Helper to process raw issues from Gemini into display-ready issues
+  const processParsedIssues = (rawIssues: ParsedIssue[]): ParsedIssue[] => {
+    return rawIssues.map(issue => {
+      // 1. Add Title Prefix
+      let prefix = '';
+      const lowerLabels = issue.labels.map(l => l.toLowerCase());
+      if (lowerLabels.some(l => l.includes('bug'))) prefix = '[Bug] ';
+      else if (lowerLabels.some(l => l.includes('feature') || l.includes('enhancement'))) prefix = '[Feature] ';
+      
+      const title = `${prefix}${issue.title}`.trim();
+
+      // 2. Merge Original Context into Body
+      let body = issue.body;
+      if (issue.originalContext) {
+        const senderPrefix = (issue.sender && issue.sender !== 'Unknown') ? `From ${issue.sender}:\n` : '';
+        body = senderPrefix + body;
+        body += 
+          `\n\n---\n\n` + 
+          `**Original Context:**\n` + 
+          `\n` +
+          `> ` + issue.originalContext;
+      }
+
+      return {
+        ...issue,
+        title,
+        body,
+        originalContext: undefined // Clear so it isn't merged again later
+      };
+    });
+  };
+
   const handleGenerate = async () => {
     if (!emailContent.subject.trim() && !emailContent.body.trim()) return;
     
@@ -26,13 +58,14 @@ const App: React.FC = () => {
     setIssues([]); // Clear previous results
 
     try {
-      const parsedIssues = await geminiService.parseEmailToIssues(emailContent.subject, emailContent.body);
+      const rawIssues = await geminiService.parseEmailToIssues(emailContent.subject, emailContent.body);
       
-      if (parsedIssues.length === 0) {
+      if (rawIssues.length === 0) {
         setErrorMsg("No actionable requests found in the email content.");
         setStatus(ProcessingStatus.IDLE);
       } else {
-        setIssues(parsedIssues);
+        const processedIssues = processParsedIssues(rawIssues);
+        setIssues(processedIssues);
         setStatus(ProcessingStatus.COMPLETE);
       }
     } catch (err) {
@@ -52,11 +85,19 @@ const App: React.FC = () => {
     }
   };
 
+  const escapeForShell = (str: string) => {
+    if (!str) return '';
+    return str
+      .replace(/\\/g, '\\\\') // Escape backslashes first
+      .replace(/"/g, '\\"')   // Escape double quotes
+      .replace(/`/g, '\\`')   // Escape backticks
+      .replace(/\$/g, '\\$'); // Escape dollar signs
+  };
+
   const copyAllCommands = async () => {
     const allCommands = issues.map(issue => {
-        // Simple regeneration logic for bulk copy
-        const safeTitle = issue.title.replace(/"/g, '\\"');
-        const safeBody = issue.body.replace(/"/g, '\\"').replace(/`/g, '\\`');
+        const safeTitle = escapeForShell(issue.title);
+        const safeBody = escapeForShell(issue.body);
         const labelsStr = issue.labels.map(l => `--label "${l}"`).join(' ');
         
         return `gh issue create --title "${safeTitle}" --body "${safeBody}" ${labelsStr}`;

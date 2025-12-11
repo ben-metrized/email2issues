@@ -4,6 +4,7 @@ export interface ParsedIssue {
   body: string;
   labels: string[];
   originalContext?: string;
+  sender?: string;
 }
 
 export enum ProcessingStatus {

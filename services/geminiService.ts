@@ -20,7 +20,8 @@ const parseEmailToIssues = async (subject: string, body: string): Promise<Parsed
     3. **Extract** the specific text segment from the email that triggered this issue into the 'originalContext' field.
     4. **Draft a Body:** Create a professional Markdown description for the 'body' field. **IMPORTANT:** Do NOT include the 'originalContext' quote inside the 'body'. The body should be a standalone summary.
     5. **Assign Labels:** Add relevant labels in the 'labels' array (available labels: "bug", "documentation", "enhancement", "question").
-    6. If the email contains NO actionable requests, return an empty array.
+    6. **Identify Sender:** Extract the name of the person requesting this feature/bug fix from headers (From:) or signature. If unknown, use "Unknown".
+    7. If the email contains NO actionable requests, return an empty array.
   `;
 
   const schema: Schema = {
@@ -44,6 +45,10 @@ const parseEmailToIssues = async (subject: string, body: string): Promise<Parsed
         originalContext: {
           type: Type.STRING,
           description: "The exact quote from the email that justifies this issue.",
+        },
+        sender: {
+          type: Type.STRING,
+          description: "Name of the sender/requestor. e.g. 'Alice'.",
         },
       },
       required: ["title", "body", "labels"],
